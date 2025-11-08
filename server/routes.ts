@@ -28,13 +28,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         traversalPath: result.traversalPath,
         retrievalLatency: result.retrievalLatency,
         evaluationScore: result.evaluationScore,
+        hallucinationDetected: result.hallucinationDetected ? 1 : 0,
+        hallucinationConfidence: result.hallucinationConfidence,
+        hallucinationViolations: result.hallucinationViolations,
       });
 
       await storage.createMetric({
         accuracyScore: result.evaluationScore,
-        hallucinationRate: 0.02 + Math.random() * 0.03,
+        hallucinationRate: result.hallucinationDetected ? 1.0 : 0.0,
         averageLatency: result.retrievalLatency,
-        userSatisfaction: 0.85 + Math.random() * 0.15,
+        userSatisfaction: result.hallucinationDetected ? 0.4 : (0.85 + Math.random() * 0.15),
         retrievalPrecision: result.evaluationScore * 0.95,
       });
 
@@ -46,6 +49,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         traversalPath: savedQuery.traversalPath,
         retrievalLatency: savedQuery.retrievalLatency,
         evaluationScore: savedQuery.evaluationScore,
+        hallucinationDetected: savedQuery.hallucinationDetected === 1,
+        hallucinationConfidence: savedQuery.hallucinationConfidence,
+        hallucinationViolations: savedQuery.hallucinationViolations,
       });
     } catch (error) {
       console.error('Query processing error:', error);

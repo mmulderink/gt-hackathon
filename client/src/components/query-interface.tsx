@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, Clock, Target, CheckCircle2, ThumbsUp, ThumbsDown, Star } from "lucide-react";
+import { Loader2, Send, Clock, Target, CheckCircle2, ThumbsUp, ThumbsDown, Star, AlertTriangle } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { QueryResponse, Query, InsertFeedback } from "@shared/schema";
@@ -167,6 +167,31 @@ export function QueryInterface() {
                   {queryMutation.data.response}
                 </p>
               </div>
+
+              {queryMutation.data.hallucinationDetected && (
+                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20" data-testid="hallucination-warning">
+                  <div className="flex items-start gap-3">
+                    <AlertTriangle className="w-5 h-5 text-destructive mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-destructive mb-1">Potential Hallucination Detected</h4>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        This response may contain information not fully supported by the knowledge graph. 
+                        Confidence: {((queryMutation.data.hallucinationConfidence || 0) * 100).toFixed(0)}%
+                      </p>
+                      {queryMutation.data.hallucinationViolations && queryMutation.data.hallucinationViolations.length > 0 && (
+                        <details className="text-sm">
+                          <summary className="cursor-pointer font-medium text-destructive">View {queryMutation.data.hallucinationViolations.length} violation(s)</summary>
+                          <ul className="mt-2 space-y-1 list-disc list-inside text-muted-foreground">
+                            {queryMutation.data.hallucinationViolations.map((violation, i) => (
+                              <li key={i}>{violation}</li>
+                            ))}
+                          </ul>
+                        </details>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="pt-4 border-t">
                 <h4 className="text-sm font-medium mb-3 flex items-center gap-2">

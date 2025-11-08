@@ -479,7 +479,10 @@ export class DrizzleStorage implements IStorage {
 
     const avgAccuracy = allQueries.reduce((sum, q) => sum + (q.evaluationScore || 0.85), 0) / totalQueries;
     const avgLatency = allQueries.reduce((sum, q) => sum + (q.retrievalLatency || 200), 0) / totalQueries;
-    const hallucinationRate = Math.max(0.005, 0.02 - (avgAccuracy * 0.02));
+    
+    // Calculate actual hallucination rate from detected hallucinations
+    const hallucinatedQueries = allQueries.filter(q => q.hallucinationDetected === 1).length;
+    const hallucinationRate = hallucinatedQueries / totalQueries;
     
     const positiveFeedback = allFeedback.filter(f => f.thumbs === 'up' || (f.rating && f.rating >= 4)).length;
     const userSatisfaction = allFeedback.length > 0 

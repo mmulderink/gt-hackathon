@@ -30,6 +30,9 @@ export const queries = pgTable("queries", {
   traversalPath: jsonb("traversal_path").$type<Array<{nodeId: string, score: number, timestamp: number}>>(),
   retrievalLatency: integer("retrieval_latency"), // milliseconds
   evaluationScore: real("evaluation_score"),
+  hallucinationDetected: integer("hallucination_detected").default(0), // 0 = no, 1 = yes (using integer for boolean compatibility)
+  hallucinationConfidence: real("hallucination_confidence"), // 0.0 to 1.0 confidence that response is factual
+  hallucinationViolations: jsonb("hallucination_violations").$type<string[]>(), // List of detected violations
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -107,6 +110,9 @@ export interface QueryResponse {
   traversalPath: Array<{nodeId: string, score: number, timestamp: number}>;
   retrievalLatency: number;
   evaluationScore: number;
+  hallucinationDetected?: boolean;
+  hallucinationConfidence?: number;
+  hallucinationViolations?: string[];
 }
 
 export interface TraversalStep {

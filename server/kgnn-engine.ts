@@ -111,6 +111,9 @@ export class KGNNEngine {
     traversalPath: Array<{nodeId: string, score: number, timestamp: number}>;
     retrievalLatency: number;
     evaluationScore: number;
+    hallucinationDetected: boolean;
+    hallucinationConfidence: number;
+    hallucinationViolations: string[];
     steps: TraversalStep[];
   }> {
     const startTime = Date.now();
@@ -140,6 +143,10 @@ export class KGNNEngine {
 
     // Generate response using LLM with graph-constrained prompting
     let response: string;
+    let hallucinationDetected = false;
+    let hallucinationConfidence = 1.0;
+    let hallucinationViolations: string[] = [];
+    
     try {
       response = await generateGraphConstrainedResponse({
         query,
@@ -153,6 +160,10 @@ export class KGNNEngine {
 
       // Detect potential hallucinations
       const hallucinationCheck = await detectHallucination(response, traversedNodes);
+      hallucinationDetected = hallucinationCheck.isHallucinated;
+      hallucinationConfidence = hallucinationCheck.confidence;
+      hallucinationViolations = hallucinationCheck.violations;
+      
       if (hallucinationCheck.isHallucinated) {
         console.warn('Potential hallucination detected:', {
           confidence: hallucinationCheck.confidence,
@@ -215,6 +226,9 @@ export class KGNNEngine {
       traversalPath,
       retrievalLatency,
       evaluationScore,
+      hallucinationDetected,
+      hallucinationConfidence,
+      hallucinationViolations,
       steps,
     };
   }
