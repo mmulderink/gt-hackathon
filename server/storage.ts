@@ -32,6 +32,12 @@ export interface IStorage {
   // Feedback operations
   createFeedback(feedback: InsertFeedback): Promise<Feedback>;
   getFeedbackByQuery(queryId: string): Promise<Feedback[]>;
+  getAllFeedback(): Promise<Feedback[]>;
+  
+  // Graph management operations
+  createNode(node: InsertNode): Promise<Node>;
+  updateNode(id: string, updates: Partial<Node>): Promise<Node>;
+  createEdge(edge: InsertEdge): Promise<Edge>;
   
   // Metrics operations
   createMetric(metric: Omit<EvaluationMetrics, 'id' | 'timestamp'>): Promise<EvaluationMetrics>;
@@ -220,6 +226,35 @@ export class MemStorage implements IStorage {
 
   async getFeedbackByQuery(queryId: string): Promise<Feedback[]> {
     return Array.from(this.feedbacks.values()).filter(f => f.queryId === queryId);
+  }
+
+  async getAllFeedback(): Promise<Feedback[]> {
+    const feedbackList = Array.from(this.feedbacks.values());
+    return feedbackList.sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
+  }
+
+  async createNode(insertNode: InsertNode): Promise<Node> {
+    const node: Node = { ...insertNode };
+    this.nodes.set(node.id, node);
+    return node;
+  }
+
+  async updateNode(id: string, updates: Partial<Node>): Promise<Node> {
+    const node = this.nodes.get(id);
+    if (!node) throw new Error('Node not found');
+    const updated = { ...node, ...updates };
+    this.nodes.set(id, updated);
+    return updated;
+  }
+
+  async createEdge(insertEdge: InsertEdge): Promise<Edge> {
+    const edge: Edge = { ...insertEdge };
+    this.edges.set(edge.id, edge);
+    return edge;
   }
 
   async createMetric(metric: Omit<EvaluationMetrics, 'id' | 'timestamp'>): Promise<EvaluationMetrics> {
@@ -442,6 +477,26 @@ export class DrizzleStorage implements IStorage {
 
   async getFeedbackByQuery(queryId: string): Promise<Feedback[]> {
     return db.select().from(feedback).where(eq(feedback.queryId, queryId));
+  }
+
+  async getAllFeedback(): Promise<Feedback[]> {
+    return db.select().from(feedback).orderBy(desc(feedback.createdAt));
+  }
+
+  async createNode(insertNode: InsertNode): Promise<Node> {
+    const result = await db.insert(nodes).values(insertNode).returning();
+    return result[0];
+  }
+
+  async updateNode(id: string, updates: Partial<Node>): Promise<Node> {
+    const result = await db.update(nodes).set(updates).where(eq(nodes.id, id)).returning();
+    if (!result[0]) throw new Error('Node not found');
+    return result[0];
+  }
+
+  async createEdge(insertEdge: InsertEdge): Promise<Edge> {
+    const result = await db.insert(edges).values(insertEdge).returning();
+    return result[0];
   }
 
   async createMetric(metric: Omit<EvaluationMetrics, 'id' | 'timestamp'>): Promise<EvaluationMetrics> {

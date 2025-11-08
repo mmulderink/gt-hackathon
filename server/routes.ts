@@ -196,6 +196,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin - Get all feedback with analysis
+  app.get("/api/admin/feedback", async (req, res) => {
+    try {
+      const allFeedback = await storage.getAllFeedback();
+      const allQueries = await storage.getAllQueries();
+      
+      const feedbackWithQueries = allFeedback.map(fb => {
+        const query = allQueries.find(q => q.id === fb.queryId);
+        return {
+          ...fb,
+          query: query?.query || 'Unknown query',
+          response: query?.response || null,
+          evaluationScore: query?.evaluationScore || null,
+        };
+      });
+
+      const negativeFeedback = feedbackWithQueries.filter(fb => 
+        (fb.thumbs === 'down') || 
+        (fb.rating !== null && fb.rating < 3) || 
+        (fb.correctness === 'incorrect' || fb.correctness === 'partially-correct')
+      );
+
+      const knowledgeGaps = negativeFeedback.reduce((gaps: Map<string, number>, fb) => {
+        const queryLower = fb.query.toLowerCase();
+        gaps.set(fb.query, (gaps.get(fb.query) || 0) + 1);
+        return gaps;
+      }, new Map());
+
+      const gapAnalysis = Array.from(knowledgeGaps.entries())
+        .map(([query, count]) => ({ query, frequency: count }))
+        .sort((a, b) => b.frequency - a.frequency);
+
+      res.json({
+        totalFeedback: allFeedback.length,
+        negativeFeedback: negativeFeedback.length,
+        feedbackList: feedbackWithQueries,
+        knowledgeGaps: gapAnalysis,
+      });
+    } catch (error) {
+      console.error('Error fetching admin feedback:', error);
+      res.status(500).json({ error: "Failed to fetch feedback" });
+    }
+  });
+
+  // Admin - Create new node
+  app.post("/api/admin/nodes", async (req, res) => {
+    try {
+      const { id, type, label, content } = req.body;
+      
+      if (!id || !type || !label || !content) {
+        return res.status(400).json({ error: "Missing required fields: id, type, label, content" });
+      }
+
+      const node = await storage.createNode({ id, type, label, content });
+      res.json(node);
+    } catch (error) {
+      console.error('Error creating node:', error);
+      res.status(500).json({ error: "Failed to create node" });
+    }
+  });
+
+  // Admin - Update node
+  app.patch("/api/admin/nodes/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+
+      const node = await storage.updateNode(id, updates);
+      res.json(node);
+    } catch (error) {
+      console.error('Error updating node:', error);
+      res.status(500).json({ error: "Failed to update node" });
+    }
+  });
+
+  // Admin - Create new edge
+  app.post("/api/admin/edges", async (req, res) => {
+    try {
+      const { id, from, to, relationship, weight } = req.body;
+      
+      if (!id || !from || !to || !relationship) {
+        return res.status(400).json({ error: "Missing required fields: id, from, to, relationship" });
+      }
+
+      const edge = await storage.createEdge({ 
+        id, 
+        sourceId: from,
+        targetId: to,
+        relationshipType: relationship,
+        weight: weight || 1.0 
+      });
+      res.json(edge);
+    } catch (error) {
+      console.error('Error creating edge:', error);
+      res.status(500).json({ error: "Failed to create edge" });
+    }
+  });
+
   // Export audit logs as CSV
   app.get("/api/compliance/export/csv", async (req, res) => {
     try {

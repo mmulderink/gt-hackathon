@@ -11,6 +11,7 @@ import VisualizationPage from "@/pages/visualization";
 import EvaluationPage from "@/pages/evaluation";
 import AuditPage from "@/pages/audit";
 import CompliancePage from "@/pages/compliance";
+import AdminPage from "@/pages/admin";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -21,6 +22,7 @@ function Router() {
       <Route path="/evaluation" component={EvaluationPage} />
       <Route path="/audit" component={AuditPage} />
       <Route path="/compliance" component={CompliancePage} />
+      <Route path="/admin" component={AdminPage} />
       <Route component={NotFound} />
     </Switch>
   );

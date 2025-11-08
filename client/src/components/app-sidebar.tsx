@@ -1,4 +1,4 @@
-import { Activity, BarChart3, FileSearch, MessageSquare, Network, Shield } from "lucide-react";
+import { Activity, BarChart3, FileSearch, MessageSquare, Network, Shield, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -37,6 +37,11 @@ const menuItems = [
     title: "Compliance",
     url: "/compliance",
     icon: Shield,
+  },
+  {
+    title: "Admin",
+    url: "/admin",
+    icon: Settings,
   },
 ];
 
