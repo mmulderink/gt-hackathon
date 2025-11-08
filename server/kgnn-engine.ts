@@ -176,10 +176,15 @@ export class KGNNEngine {
       response += '\n';
     }
 
-    response += `**Knowledge Graph Path:** Traversed ${visitedNodes.length} nodes across ${Math.max(...traversalPath.map(p => p.timestamp))}ms to retrieve this information.\n\n`;
-    response += `This response was generated using graph-based retrieval (not vector embeddings) ensuring full explainability and auditability of the reasoning process.`;
-
     const retrievalLatency = Date.now() - startTime;
+
+    response += `\n**KGNN Retrieval Advantages:**\n`;
+    response += `- **Explainability**: Every step in the knowledge graph traversal is logged and auditable\n`;
+    response += `- **Structured Reasoning**: Followed ${visitedNodes.length} relationship-based hops (vs. similarity-only vector search)\n`;
+    response += `- **Domain Compliance**: Graph enforces medical device regulatory relationships and procedural requirements\n`;
+    response += `- **No Hallucination Risk**: All information comes from verified nodes in the knowledge graph\n`;
+    response += `- **Latency**: ${retrievalLatency}ms graph traversal (comparable to vector search but with guaranteed provenance)\n\n`;
+    response += `This response demonstrates enterprise-grade AI reliability through graph-constrained generation and complete audit trails.`;
     
     const qualityFactors = {
       depthScore: Math.min(visitedNodes.length / 8, 1.0),

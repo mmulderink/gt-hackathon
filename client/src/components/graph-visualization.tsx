@@ -16,7 +16,7 @@ export function GraphVisualization() {
 
   const { data: traversalData } = useQuery<{steps: TraversalStep[]}>({
     queryKey: ["/api/traversal/latest"],
-    refetchInterval: 1000,
+    refetchInterval: 500, // Poll more frequently for smoother updates
   });
 
   useEffect(() => {

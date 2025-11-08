@@ -108,10 +108,10 @@ export function QueryInterface() {
               <div className="pt-4 border-t">
                 <h4 className="text-sm font-medium mb-3 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4 text-primary" />
-                  Knowledge Graph Path ({queryMutation.data.nodesVisited.length} nodes visited)
+                  Knowledge Graph Path ({queryMutation.data?.nodesVisited?.length || 0} nodes visited)
                 </h4>
                 <div className="flex flex-wrap gap-2">
-                  {queryMutation.data.nodesVisited.map((nodeId, index) => (
+                  {queryMutation.data?.nodesVisited?.map((nodeId, index) => (
                     <Badge key={index} variant="secondary" className="font-mono text-xs">
                       {nodeId}
                     </Badge>
