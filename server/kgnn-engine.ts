@@ -1,5 +1,6 @@
 import type { Node, Edge, TraversalStep } from "@shared/schema";
 import { storage } from "./storage";
+import { generateGraphConstrainedResponse, detectHallucination } from "./llm-service";
 
 export class KGNNEngine {
   private async findRelevantNodes(query: string, nodes: Node[]): Promise<Map<string, number>> {
@@ -123,73 +124,85 @@ export class KGNNEngine {
 
     const { visitedNodes, traversalPath, steps } = await this.traverseGraph(sortedRelevant);
 
-    const devices = new Set<Node>();
-    const symptoms = new Set<Node>();
-    const solutions = new Set<Node>();
-    const regulations = new Set<Node>();
-    const procedures = new Set<Node>();
-
+    // Collect traversed nodes for LLM generation
+    const traversedNodes: Node[] = [];
     for (const nodeId of visitedNodes) {
       const node = await storage.getNode(nodeId);
-      if (!node) continue;
-
-      switch (node.type) {
-        case 'device': devices.add(node); break;
-        case 'symptom': symptoms.add(node); break;
-        case 'solution': solutions.add(node); break;
-        case 'regulation': regulations.add(node); break;
-        case 'procedure': procedures.add(node); break;
+      if (node) {
+        traversedNodes.push(node);
       }
-    }
-
-    let response = '';
-
-    if (devices.size > 0) {
-      const device = Array.from(devices)[0];
-      response += `**Device Identified:** ${device.label}\n\n`;
-      response += `${device.content}\n\n`;
-    }
-
-    if (symptoms.size > 0) {
-      response += `**Issue Analysis:**\n`;
-      symptoms.forEach(s => {
-        response += `- ${s.label}: ${s.content}\n`;
-      });
-      response += '\n';
-    }
-
-    if (solutions.size > 0) {
-      response += `**Recommended Solution:**\n\n`;
-      const solution = Array.from(solutions)[0];
-      response += `${solution.label}\n\n`;
-      response += `${solution.content}\n\n`;
-    }
-
-    if (regulations.size > 0 || procedures.size > 0) {
-      response += `**Compliance & Procedures:**\n`;
-      regulations.forEach(r => {
-        response += `- ${r.label}: ${r.content}\n`;
-      });
-      procedures.forEach(p => {
-        response += `- ${p.label}: ${p.content}\n`;
-      });
-      response += '\n';
     }
 
     const retrievalLatency = Date.now() - startTime;
 
-    response += `\n**KGNN Retrieval Advantages:**\n`;
-    response += `- **Explainability**: Every step in the knowledge graph traversal is logged and auditable\n`;
-    response += `- **Structured Reasoning**: Followed ${visitedNodes.length} relationship-based hops (vs. similarity-only vector search)\n`;
-    response += `- **Domain Compliance**: Graph enforces medical device regulatory relationships and procedural requirements\n`;
-    response += `- **No Hallucination Risk**: All information comes from verified nodes in the knowledge graph\n`;
-    response += `- **Latency**: ${retrievalLatency}ms graph traversal (comparable to vector search but with guaranteed provenance)\n\n`;
-    response += `This response demonstrates enterprise-grade AI reliability through graph-constrained generation and complete audit trails.`;
+    // Build graph context for LLM
+    const graphContext = `Graph traversal completed in ${retrievalLatency}ms with ${visitedNodes.length} nodes visited through relationship-based hops.`;
+
+    // Generate response using LLM with graph-constrained prompting
+    let response: string;
+    try {
+      response = await generateGraphConstrainedResponse({
+        query,
+        traversedNodes,
+        graphContext,
+      });
+
+      // Replace placeholder values in LLM response with actual metrics
+      response = response.replace('[X]', String(visitedNodes.length));
+      response = response.replace('[X]ms', `${retrievalLatency}ms`);
+
+      // Detect potential hallucinations
+      const hallucinationCheck = await detectHallucination(response, traversedNodes);
+      if (hallucinationCheck.isHallucinated) {
+        console.warn('Potential hallucination detected:', {
+          confidence: hallucinationCheck.confidence,
+          violations: hallucinationCheck.violations,
+        });
+      }
+    } catch (error) {
+      console.error('LLM generation failed, falling back to template response:', error);
+      
+      // Fallback to template-based response if LLM fails
+      const devices = traversedNodes.filter(n => n.type === 'device');
+      const symptoms = traversedNodes.filter(n => n.type === 'symptom');
+      const solutions = traversedNodes.filter(n => n.type === 'solution');
+      const regulations = traversedNodes.filter(n => n.type === 'regulation');
+      const procedures = traversedNodes.filter(n => n.type === 'procedure');
+
+      response = '';
+      if (devices.length > 0) {
+        response += `**Device Identified:** ${devices[0].label}\n\n${devices[0].content}\n\n`;
+      }
+      if (symptoms.length > 0) {
+        response += `**Issue Analysis:**\n${symptoms.map(s => `- ${s.label}: ${s.content}`).join('\n')}\n\n`;
+      }
+      if (solutions.length > 0) {
+        response += `**Recommended Solution:**\n\n${solutions[0].label}\n\n${solutions[0].content}\n\n`;
+      }
+      if (regulations.length > 0 || procedures.length > 0) {
+        response += `**Compliance & Procedures:**\n`;
+        response += regulations.map(r => `- ${r.label}: ${r.content}`).join('\n');
+        response += procedures.map(p => `- ${p.label}: ${p.content}`).join('\n');
+        response += '\n\n';
+      }
+      response += `\n**KGNN Retrieval Advantages:**\n`;
+      response += `- **Explainability**: Every step in the knowledge graph traversal is logged and auditable\n`;
+      response += `- **Structured Reasoning**: Followed ${visitedNodes.length} relationship-based hops (vs. similarity-only vector search)\n`;
+      response += `- **Domain Compliance**: Graph enforces medical device regulatory relationships and procedural requirements\n`;
+      response += `- **No Hallucination Risk**: All information comes from verified nodes in the knowledge graph\n`;
+      response += `- **Latency**: ${retrievalLatency}ms graph traversal (comparable to vector search but with guaranteed provenance)\n\n`;
+      response += `This response demonstrates enterprise-grade AI reliability through graph-constrained generation and complete audit trails.`;
+    }
+    
+    // Calculate quality scores based on traversed nodes
+    const solutions = traversedNodes.filter(n => n.type === 'solution');
+    const regulations = traversedNodes.filter(n => n.type === 'regulation');
+    const procedures = traversedNodes.filter(n => n.type === 'procedure');
     
     const qualityFactors = {
       depthScore: Math.min(visitedNodes.length / 8, 1.0),
-      solutionScore: solutions.size > 0 ? 1.0 : 0.6,
-      regulationScore: (regulations.size + procedures.size) > 0 ? 1.0 : 0.8,
+      solutionScore: solutions.length > 0 ? 1.0 : 0.6,
+      regulationScore: (regulations.length + procedures.length) > 0 ? 1.0 : 0.8,
     };
     
     const evaluationScore = (qualityFactors.depthScore * 0.3 + 
