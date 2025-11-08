@@ -161,6 +161,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get compliance report
+  app.get("/api/compliance/report", async (req, res) => {
+    try {
+      const queries = await storage.getAllQueries();
+      const nodes = await storage.getAllNodes();
+      const edges = await storage.getAllEdges();
+      
+      const report = queries.map(query => ({
+        id: query.id,
+        timestamp: query.createdAt,
+        query: query.query,
+        response: query.response,
+        nodesVisited: query.nodesVisited || [],
+        traversalPath: query.traversalPath || [],
+        retrievalLatency: query.retrievalLatency,
+        evaluationScore: query.evaluationScore,
+        hallucinationDetected: query.hallucinationDetected === 1,
+        hallucinationConfidence: query.hallucinationConfidence || 0,
+        complianceNodes: (query.nodesVisited || [])
+          .map(nodeId => nodes.find(n => n.id === nodeId))
+          .filter(n => n && n.type === 'regulation')
+          .map(n => ({ id: n!.id, label: n!.label, content: n!.content })),
+      }));
+
+      res.json({
+        totalQueries: report.length,
+        reportGeneratedAt: new Date().toISOString(),
+        queries: report,
+      });
+    } catch (error) {
+      console.error('Error generating compliance report:', error);
+      res.status(500).json({ error: "Failed to generate compliance report" });
+    }
+  });
+
+  // Export audit logs as CSV
+  app.get("/api/compliance/export/csv", async (req, res) => {
+    try {
+      const queries = await storage.getAllQueries();
+      const nodes = await storage.getAllNodes();
+      
+      const csvHeader = 'ID,Timestamp,Query,Response Preview,Nodes Visited,Traversal Hops,Latency (ms),Evaluation Score,Hallucination Detected,Hallucination Confidence,Compliance Regulations\n';
+      
+      const csvRows = queries.map(query => {
+        const responsePreview = (query.response || '').substring(0, 100).replace(/"/g, '""').replace(/\n/g, ' ');
+        const nodesCount = (query.nodesVisited || []).length;
+        const hopsCount = (query.traversalPath || []).length;
+        const timestamp = query.createdAt instanceof Date 
+          ? query.createdAt.toISOString() 
+          : new Date(query.createdAt!).toISOString();
+        
+        const complianceNodes = (query.nodesVisited || [])
+          .map(nodeId => nodes.find(n => n.id === nodeId))
+          .filter(n => n && n.type === 'regulation')
+          .map(n => `${n!.label} (${n!.id})`)
+          .join('; ')
+          .replace(/"/g, '""');
+        
+        return `"${query.id}","${timestamp}","${query.query.replace(/"/g, '""')}","${responsePreview}",${nodesCount},${hopsCount},${query.retrievalLatency || 0},${query.evaluationScore || 0},${query.hallucinationDetected === 1},${query.hallucinationConfidence || 0},"${complianceNodes}"`;
+      }).join('\n');
+
+      const csv = csvHeader + csvRows;
+      
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="medgraph-audit-logs.csv"');
+      res.send(csv);
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      res.status(500).json({ error: "Failed to export CSV" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

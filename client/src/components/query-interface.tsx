@@ -36,6 +36,9 @@ export function QueryInterface() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/queries/recent"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/compliance/report"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/audit"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/metrics/summary"] });
       setQuery("");
       setFeedbackSubmitted(false);
       setFeedbackRating(null);

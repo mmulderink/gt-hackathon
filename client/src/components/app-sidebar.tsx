@@ -1,4 +1,4 @@
-import { Activity, BarChart3, FileSearch, MessageSquare, Network } from "lucide-react";
+import { Activity, BarChart3, FileSearch, MessageSquare, Network, Shield } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -32,6 +32,11 @@ const menuItems = [
     title: "Audit Trail",
     url: "/audit",
     icon: FileSearch,
+  },
+  {
+    title: "Compliance",
+    url: "/compliance",
+    icon: Shield,
   },
 ];
 
