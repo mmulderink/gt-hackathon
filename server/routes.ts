@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { kgnnEngine } from "./kgnn-engine";
 import type { QueryRequest, TraversalStep } from "@shared/schema";
+import { insertFeedbackSchema } from "@shared/schema";
 
 let latestTraversalSteps: TraversalStep[] = [];
 
@@ -137,7 +138,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create feedback
   app.post("/api/feedback", async (req, res) => {
     try {
-      const feedback = await storage.createFeedback(req.body);
+      const validationResult = insertFeedbackSchema.safeParse(req.body);
+      
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          error: "Invalid feedback data", 
+          details: validationResult.error.errors 
+        });
+      }
+      
+      const feedback = await storage.createFeedback(validationResult.data);
       res.json(feedback);
     } catch (error) {
       console.error('Error creating feedback:', error);

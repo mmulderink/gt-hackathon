@@ -3,26 +3,65 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Send, Clock, Target, CheckCircle2 } from "lucide-react";
+import { Loader2, Send, Clock, Target, CheckCircle2, ThumbsUp, ThumbsDown, Star } from "lucide-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { QueryResponse, Query } from "@shared/schema";
+import type { QueryResponse, Query, InsertFeedback } from "@shared/schema";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function QueryInterface() {
   const [query, setQuery] = useState("");
+  const [feedbackRating, setFeedbackRating] = useState<number | null>(null);
+  const [feedbackComment, setFeedbackComment] = useState("");
+  const [feedbackCorrectness, setFeedbackCorrectness] = useState<string | null>(null);
+  const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
+  const { toast } = useToast();
 
   const { data: recentQueries, isLoading: isLoadingQueries } = useQuery<Query[]>({
     queryKey: ["/api/queries/recent"],
   });
 
-  const queryMutation = useMutation({
+  const queryMutation = useMutation<QueryResponse, Error, string>({
     mutationFn: async (queryText: string) => {
-      return apiRequest<QueryResponse>("POST", "/api/query", { query: queryText });
+      const res = await apiRequest("POST", "/api/query", { query: queryText });
+      return await res.json() as QueryResponse;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/queries/recent"] });
       setQuery("");
+      setFeedbackSubmitted(false);
+      setFeedbackRating(null);
+      setFeedbackComment("");
+      setFeedbackCorrectness(null);
+    },
+  });
+
+  const feedbackMutation = useMutation({
+    mutationFn: async (feedback: InsertFeedback) => {
+      const res = await apiRequest("POST", "/api/feedback", feedback);
+      return await res.json();
+    },
+    onSuccess: () => {
+      setFeedbackSubmitted(true);
+      toast({
+        title: "Feedback Submitted",
+        description: "Thank you for your feedback! It helps improve the system.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to submit feedback. Please try again.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -31,6 +70,30 @@ export function QueryInterface() {
     if (query.trim()) {
       queryMutation.mutate(query);
     }
+  };
+
+  const handleThumbsFeedback = (thumbs: 'up' | 'down') => {
+    if (!queryMutation.data) return;
+    
+    feedbackMutation.mutate({
+      queryId: queryMutation.data.id,
+      thumbs,
+      rating: null,
+      correctness: null,
+      comment: null,
+    });
+  };
+
+  const handleDetailedFeedback = () => {
+    if (!queryMutation.data) return;
+
+    feedbackMutation.mutate({
+      queryId: queryMutation.data.id,
+      rating: feedbackRating,
+      correctness: feedbackCorrectness,
+      comment: feedbackComment || null,
+      thumbs: null,
+    });
   };
 
   return (
@@ -118,6 +181,115 @@ export function QueryInterface() {
                   ))}
                 </div>
               </div>
+
+              {!feedbackSubmitted && (
+                <div className="pt-4 border-t">
+                  <h4 className="text-sm font-medium mb-4">Rate This Response</h4>
+                  
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <span className="text-sm text-muted-foreground">Quick Feedback:</span>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleThumbsFeedback('up')}
+                          disabled={feedbackMutation.isPending}
+                          data-testid="button-thumbs-up"
+                        >
+                          <ThumbsUp className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleThumbsFeedback('down')}
+                          disabled={feedbackMutation.isPending}
+                          data-testid="button-thumbs-down"
+                        >
+                          <ThumbsDown className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3">
+                        <label className="text-sm text-muted-foreground min-w-28">Rating:</label>
+                        <div className="flex gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Button
+                              key={star}
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setFeedbackRating(star)}
+                              data-testid={`button-rating-${star}`}
+                            >
+                              <Star
+                                className={`w-4 h-4 ${
+                                  feedbackRating && star <= feedbackRating
+                                    ? "fill-primary text-primary"
+                                    : "text-muted-foreground"
+                                }`}
+                              />
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <label className="text-sm text-muted-foreground min-w-28">Correctness:</label>
+                        <Select value={feedbackCorrectness || undefined} onValueChange={setFeedbackCorrectness}>
+                          <SelectTrigger className="w-64" data-testid="select-correctness">
+                            <SelectValue placeholder="Select correctness level" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="correct">Correct</SelectItem>
+                            <SelectItem value="partially_correct">Partially Correct</SelectItem>
+                            <SelectItem value="incorrect">Incorrect</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <label className="text-sm text-muted-foreground min-w-28 pt-2">Comment:</label>
+                        <Textarea
+                          value={feedbackComment}
+                          onChange={(e) => setFeedbackComment(e.target.value)}
+                          placeholder="Optional: Share your thoughts on this response..."
+                          className="flex-1 text-sm resize-none"
+                          rows={3}
+                          data-testid="input-feedback-comment"
+                        />
+                      </div>
+
+                      <div className="flex justify-end">
+                        <Button
+                          onClick={handleDetailedFeedback}
+                          disabled={feedbackMutation.isPending || (!feedbackRating && !feedbackCorrectness)}
+                          data-testid="button-submit-feedback"
+                        >
+                          {feedbackMutation.isPending ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Submitting...
+                            </>
+                          ) : (
+                            "Submit Feedback"
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {feedbackSubmitted && (
+                <div className="pt-4 border-t">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckCircle2 className="w-4 h-4 text-primary" />
+                    <span>Thank you for your feedback!</span>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
