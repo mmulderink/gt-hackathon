@@ -310,12 +310,12 @@ Response: CSV file download
 
 ---
 
-## 🎬 Demo Script for Hackathon Judges
+## Hackathon Presentation
 
-### 1. Problem Statement (30 seconds)
+### 1. Problem Statement
 > "Traditional RAG systems hallucinate 5-10% of the time because they rely on probabilistic vector similarity. In medical device support, this is unacceptable. MedGraph AI eliminates hallucinations by using explicit knowledge graph traversal instead."
 
-### 2. Live Demo (5 minutes)
+### 2. Live Demo
 
 **Query Submission:**
 - Submit: *"Why is Horizon X2 showing error E-203?"*
