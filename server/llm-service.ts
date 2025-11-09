@@ -1,14 +1,14 @@
-import OpenAI from 'openai';
+// DON'T DELETE THIS COMMENT
+// Using Gemini 2.5 Flash for LLM generation
+import { GoogleGenAI } from '@google/genai';
 import type { Node } from '@shared/schema';
 
-let openai: OpenAI | null = null;
+let gemini: GoogleGenAI | null = null;
 
-if (process.env.OPENAI_API_KEY) {
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
+if (process.env.GEMINI_API_KEY) {
+  gemini = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 } else {
-  console.warn('OPENAI_API_KEY not set - LLM features will use fallback responses');
+  console.warn('GEMINI_API_KEY not set - LLM features will use fallback responses');
 }
 
 export interface LLMGenerationOptions {
@@ -65,29 +65,29 @@ This response demonstrates enterprise-grade AI reliability through graph-constra
 
   const userPrompt = query;
 
-  if (!openai) {
-    throw new Error('OpenAI client not initialized - missing API key');
+  if (!gemini) {
+    throw new Error('Gemini client not initialized - missing API key');
   }
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.3, // Low temperature for factual, consistent responses
-      max_tokens: 1000,
+    const response = await gemini.models.generateContent({
+      model: 'gemini-2.5-flash',
+      config: {
+        systemInstruction: systemPrompt,
+        temperature: 0.3, // Low temperature for factual, consistent responses
+        maxOutputTokens: 1000,
+      },
+      contents: userPrompt,
     });
 
-    const response = completion.choices[0]?.message?.content;
-    if (!response) {
-      throw new Error('No response from OpenAI');
+    const text = response.text;
+    if (!text) {
+      throw new Error('No response from Gemini');
     }
 
-    return response;
+    return text;
   } catch (error) {
-    console.error('OpenAI API error:', error);
+    console.error('Gemini API error:', error);
     throw new Error('Failed to generate LLM response');
   }
 }
@@ -116,12 +116,13 @@ export async function detectHallucination(response: string, traversedNodes: Node
 
   // Check if response contains information not in knowledge base
   const responseWords = response.toLowerCase().split(/\s+/);
+  const factsArray = Array.from(facts);
   
   for (const word of responseWords) {
     if (medicalTerms.includes(word)) {
       totalChecks++;
       let found = false;
-      for (const fact of facts) {
+      for (const fact of factsArray) {
         if (fact.includes(word)) {
           found = true;
           factsFound++;
