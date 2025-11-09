@@ -511,15 +511,6 @@ Direct PostgreSQL queries confirm:
 - ✅ Nodes and edges created via admin interface
 - ✅ Evaluation metrics calculated from actual data
 
-### Manual Testing Checklist
-For additional validation:
-- [ ] Submit various medical device queries
-- [ ] Verify graph traversal shows correct paths
-- [ ] Test feedback submission (thumbs + detailed)
-- [ ] Export compliance CSV and verify format
-- [ ] Add new nodes and edges via admin dashboard
-- [ ] Verify hallucination detection flags incorrect responses
-
 ---
 
 ## 🚀 Deployment
@@ -551,30 +542,8 @@ This project was built for the Enterprise AI Reliability hackathon. Future enhan
 
 ---
 
-## 📄 License
-
-This project was created for the Enterprise AI Reliability Hackathon. License details to be determined.
-
----
-
-## 👥 Team
-
-Built with ❤️ for the Enterprise AI Reliability Hackathon
-
----
-
-## 📞 Support
-
-For questions or issues:
-- Open a GitHub issue
-- Contact via hackathon Slack channel
-
----
-
 <div align="center">
 
 **MedGraph AI - Reliable, Explainable, Compliant AI for Healthcare**
-
-[Demo](https://your-demo-link.replit.app) • [Documentation](#) • [Hackathon Submission](#)
 
 </div>
